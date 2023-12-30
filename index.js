@@ -80,9 +80,15 @@ app.post('/api/users/:id/exercises', (req, res) => {
   //     return res.json(data)
   //   })
   //   .catch(e => //console.log({ e }))
-
+  console.log(req.body)
+  if (!mongoose.Types.ObjectId.isValid(req.body[':_id'])) {
+    console.log('error', req.body)
+    return res.json({ error: 'Invalid Object Id' })
+  }
+  console.log(req.body)
   return userModel.findById({ _id: req.body[':_id'] })
     .then(data => {
+
       let newexercise = new exerciseModel({
         user_id: req.body[':_id'],
         username: data.username,
@@ -158,27 +164,82 @@ app.get('/api/users/:_id/logs', (req, res) => {
 
   return userModel.findById({ _id: req.params._id })
     .then(userData => {
-      exerciseModel.countDocuments({ user_id: userData._id })
-        .then(count => {
-          exerciseModel.find({
-            user_id: userData._id
-          })
-            .limit(req.query.limit)
-            .exec()
-            .then(exercises => {
-              return res.json({
-                username: userData.username,
-                count,
-                _id: userData._id,
-                log: exercises
+      exerciseModel.find({
+        user_id: userData._id
+      })
+        .limit(req.query.limit)
+        .exec()
+        .then(exercises => {
+          // console.log(exercises, new Date(req.query.from).toDateString());
+          // exercises = req.query.from || req.query.to ?
+          //   exercises.filter((exercise) => {
+          //     let newDate = (date) => {
+          //       new Date(date).getTime()
+          //       console.log(new Date(date).getTime())
+          //     }
+          //     return newDate(exercise.date) >= newDate(req.query.from)
+          //       && newDate(exercise.date) <= newDate(req.query.to)
+          //   }) : exercises
+
+          if (req.query.from || req.query.to) {
+            var from = new Date(req.query.from).getTime()
+
+            to = new Date(req.query.to).getTime();
+
+            if (isNaN(from)) {
+              var result = exercises.filter(d => {
+                let time = new Date(d.date).getTime()
+                return (time <= to)
               })
+            }
+            else if (isNaN(to)) {
+              var result = exercises.filter(d => {
+                let time = new Date(d.date).getTime();
+                return (time >= from)
+              })
+            } else {
+
+              var result = exercises.filter(d => {
+                let time = new Date(d.date).getTime();
+                return (time >= from && time <= to)
+              })
+            }
+
+            return res.json({
+              username: userData.username,
+              count: result.length,
+              _id: userData._id,
+              log: result
             })
+          }
+          return res.json({
+            username: userData.username,
+            count: exercises.length,
+            _id: userData._id,
+            log: exercises
+          })
         })
+
     }).catch(e => {
       res.json({ error: e })
     })
 
 
+})
+
+app.post('*', (req, res) => {
+  res.status(404)
+  // if (req.accepts('html')) {
+  //   res.render('404', { url: req.url })
+  //   return
+  // }
+
+  // if (req.accepts('json')) {
+  //   res.json({ error: 'Not found' })
+  //   return
+  // }
+
+  res.type('txt').send('Not found').status(404)
 })
 
 const listener = app.listen(process.env.PORT || 3000, () => {
